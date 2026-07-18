@@ -8,7 +8,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseTsvMeta, parseTsvEntries, idFromFilename, listFiles } from './lib.mjs';
+import { parseTsvMeta, parseTsvEntries, parseWordFilename, listFiles, CATEGORIES } from './lib.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const errors = [];
@@ -20,12 +20,16 @@ for (const file of listFiles(path.join(ROOT, 'words'), '.tsv')) {
   const text = fs.readFileSync(path.join(ROOT, 'words', file), 'utf8');
   const meta = parseTsvMeta(text);
   if (!meta.title) errors.push(`${label}: 先頭コメントに「# title: 表示名」がありません`);
-  if (meta.order != null && Number.isNaN(Number(meta.order))) {
-    errors.push(`${label}: order が数値ではありません: ${meta.order}`);
+  if (meta.category && !CATEGORIES.includes(meta.category)) {
+    errors.push(`${label}: category が不正です(${CATEGORIES.join(' / ')} のみ): ${meta.category}`);
   }
-  const id = meta.id || idFromFilename(file);
-  if (!/^[a-z0-9_-]+$/.test(id)) errors.push(`${label}: id が不正です(半角英数・-・_のみ): ${id}`);
-  if (seenIds.has(id)) errors.push(`${label}: id "${id}" が ${seenIds.get(id)} と重複しています`);
+  if (!/^[A-Za-z0-9@._-]+\.tsv$/.test(file)) {
+    errors.push(`${label}: ファイル名に使えない文字があります(半角英数・@・.・-・_のみ)`);
+  }
+  const { id } = parseWordFilename(file);
+  // 同じ id の別バージョンが共存するとカタログ・ランキングが割れるため、
+  // バージョン更新時は旧ファイルを削除すること
+  if (seenIds.has(id)) errors.push(`${label}: id "${id}" が ${seenIds.get(id)} と重複しています(旧バージョンを削除してください)`);
   seenIds.set(id, label);
 
   const { entries, errors: lineErrors } = parseTsvEntries(text);

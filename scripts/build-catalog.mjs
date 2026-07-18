@@ -6,7 +6,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseTsvMeta, parseTsvEntries, idFromFilename, listFiles } from './lib.mjs';
+import { parseTsvMeta, parseTsvEntries, parseWordFilename, listFiles, CATEGORIES, DEFAULT_CATEGORY } from './lib.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = process.argv[2] ? path.resolve(process.argv[2]) : ROOT;
@@ -16,16 +16,19 @@ for (const file of listFiles(path.join(ROOT, 'words'), '.tsv')) {
   const text = fs.readFileSync(path.join(ROOT, 'words', file), 'utf8');
   const meta = parseTsvMeta(text);
   const { entries } = parseTsvEntries(text);
+  const { id, version } = parseWordFilename(file);
   words.push({
-    id: meta.id || idFromFilename(file),
-    title: meta.title || idFromFilename(file),
+    id,
+    title: meta.title || id,
+    category: meta.category || DEFAULT_CATEGORY,
+    version,
     file,
     entries: entries.length,
-    order: meta.order != null ? Number(meta.order) : null,
   });
 }
-words.sort((a, b) => (a.order ?? Infinity) - (b.order ?? Infinity) || a.id.localeCompare(b.id));
-for (const w of words) delete w.order;
+// カテゴリ順(CATEGORIES の並び、未知カテゴリは末尾)→ id順
+const catIndex = (c) => (CATEGORIES.includes(c) ? CATEGORIES.indexOf(c) : CATEGORIES.length);
+words.sort((a, b) => catIndex(a.category) - catIndex(b.category) || a.id.localeCompare(b.id));
 
 const ghosts = [];
 for (const file of listFiles(path.join(ROOT, 'ghosts'), '.ghost.json')) {
@@ -41,7 +44,7 @@ for (const file of listFiles(path.join(ROOT, 'ghosts'), '.ghost.json')) {
 ghosts.sort((a, b) => (a.order ?? Infinity) - (b.order ?? Infinity) || a.id.localeCompare(b.id));
 for (const g of ghosts) delete g.order;
 
-const catalog = { version: 1, words, ghosts };
+const catalog = { version: 2, words, ghosts };
 fs.mkdirSync(outDir, { recursive: true });
 fs.writeFileSync(path.join(outDir, 'catalog.json'), JSON.stringify(catalog, null, 2) + '\n');
 console.log(`catalog.json: 単語リスト${words.length}件 / ゴースト${ghosts.length}件 → ${outDir}`);

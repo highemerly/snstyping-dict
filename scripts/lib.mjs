@@ -10,13 +10,17 @@ import path from 'node:path';
 // 漢字などキーボードで直接打てない文字は不可。
 export const READING_RE = /^[ぁ-ゖァ-ヶー、。！？・「」　\x20-\x7e]+$/u;
 
+// 辞書カテゴリ。配列順がカタログ・UIでの表示順になる
+export const CATEGORIES = ['一般', 'handon.club'];
+export const DEFAULT_CATEGORY = CATEGORIES[0];
+
 // TSV先頭のコメントブロックから `# key: value` 形式のメタデータを読む
 export function parseTsvMeta(text) {
   const meta = {};
   for (const rawLine of text.split(/\r?\n/)) {
     const line = rawLine.trim();
     if (!line.startsWith('#')) break; // 先頭コメントブロックの終わり
-    const m = line.match(/^#\s*(id|title|order)\s*:\s*(.+)$/);
+    const m = line.match(/^#\s*(title|category)\s*:\s*(.+)$/);
     if (m) meta[m[1]] = m[2].trim();
   }
   return meta;
@@ -47,14 +51,14 @@ export function parseTsvEntries(text) {
   return { entries, errors };
 }
 
-// ファイル名からidを導出(idヘッダ省略時のフォールバック)
-export function idFromFilename(file) {
-  return path
-    .basename(file)
-    .replace(/\.tsv$/, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9_-]+/g, '-')
-    .replace(/^-+|-+$/g, '');
+// ファイル名から id とバージョンを導出する。
+// `<id>.tsv` または `<id>@<YYYYMMDDHHMM>.tsv`(末尾の @数字12〜14桁 がバージョン)。
+//   proverbs.tsv                        → { id: 'proverbs', version: null }
+//   @user@handon.club@202607172345.tsv  → { id: '@user@handon.club', version: '202607172345' }
+export function parseWordFilename(file) {
+  const base = path.basename(file).replace(/\.tsv$/, '');
+  const m = base.match(/^(.+)@(\d{12,14})$/);
+  return m ? { id: m[1], version: m[2] } : { id: base, version: null };
 }
 
 export function listFiles(dir, suffix) {
