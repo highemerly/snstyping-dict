@@ -3,11 +3,12 @@
 [snstyping](https://github.com/highemerly) の単語リスト(辞書)とゴーストファイルの配信リポジトリ。
 GitHub Pages で配信し、アプリは実行時にここから取得する。
 
-- カタログ: `https://highemerly.github.io/snstyping-dict/catalog.json`
+- 辞書カタログ: `https://highemerly.github.io/snstyping-dict/words.json`
+- ゴーストカタログ: `https://highemerly.github.io/snstyping-dict/ghosts.json`
 - 単語リスト: `https://highemerly.github.io/snstyping-dict/words/<file>`
 - ゴースト: `https://highemerly.github.io/snstyping-dict/ghosts/<file>`
 
-`catalog.json` はコミットしない。main への push で GitHub Actions が
+`words.json` / `ghosts.json` はコミットしない。main への push で GitHub Actions が
 `scripts/build-catalog.mjs` により自動生成し、Pages にデプロイする
 (反映は CDN キャッシュ含め最大10分程度)。
 
@@ -20,12 +21,12 @@ GitHub Pages で配信し、アプリは実行時にここから取得する。
 ...
 ```
 
-- **id はファイル名から導出**する(ヘッダには書かない)。`proverbs.tsv` → id `proverbs`。
-- **バージョンはファイル名末尾の `@YYYYMMDDHHMM`**(数字12〜14桁)。
-  `@highemerly@handon.club@202607172345.tsv` → id `@highemerly@handon.club`、
-  version `202607172345`。バージョン無しのファイル(`proverbs.tsv` など)は version `null`。
-  内容を更新したときはバージョン付きファイル名で置き、**同一idの旧ファイルは削除**する
-  (共存は Validate がエラーにする)。ランキング等では id + version の組で辞書の版を区別する。
+- **id はファイル名から導出**する(ヘッダには書かない)。`proverbs.tsv` → id `proverbs`、
+  `@highemerly@handon.club.tsv` → id `@highemerly@handon.club`。ファイル名 = id + `.tsv`。
+- **バージョンは中身のハッシュ**(sha256 先頭10桁)。カタログ生成時に自動計算され、
+  ファイル名には付けない。**更新は同じファイルを上書き編集するだけ**(GitHub のUIや
+  各種アプリから直接編集してよい)。中身が変わった版だけ version が変わり、
+  内容を元に戻せば version も元に戻る。ランキング等では id + version の組で辞書の版を区別する。
 - 並び順は カタログ生成時に カテゴリ順(一般 → handon.club)→ id順 で決まる(`order` は廃止)。
 - ファイル名に使えるのは 半角英数・`@`・`.`・`-`・`_`。
 - `#` 始まりはコメント。メタデータはファイル先頭のコメントブロックに書く。
@@ -44,8 +45,9 @@ id はファイル名(`demo.ghost.json` → `demo`)。
 
 ## 追加・更新の手順
 
-1. `words/` に TSV を追加(または置き換え)する PR を作る。**辞書ファイルだけでよい**。
-   カタログの更新は不要(マージ後に Actions が自動生成)。
+1. `words/` の TSV を追加、または**既存ファイルを直接編集**する PR を作る。
+   **辞書ファイルだけでよい**。カタログとバージョンは不要
+   (マージ後に Actions が words.json / ghosts.json とバージョンを自動生成)。
 2. PR で `Validate` ワークフローが形式チェックする。
 3. マージすると `Deploy Pages` が走り、数分でアプリに反映される。
 
@@ -59,5 +61,5 @@ fine-grained PAT(このリポジトリの Contents: Read and write / Pull reques
 
 ```
 node scripts/validate.mjs        # 形式チェック
-node scripts/build-catalog.mjs   # catalog.json をローカル生成(gitignore済み)
+node scripts/build-catalog.mjs   # words.json / ghosts.json をローカル生成(gitignore済み)
 ```

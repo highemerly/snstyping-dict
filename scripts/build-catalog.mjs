@@ -1,4 +1,4 @@
-// words/*.tsv と ghosts/*.ghost.json を走査して catalog.json を生成する。
+// words/*.tsv と ghosts/*.ghost.json を走査して words.json / ghosts.json を生成する。
 // カタログはコミットせず、GitHub Actions のデプロイ時に生成して Pages 成果物に含める。
 //
 //   node scripts/build-catalog.mjs [出力先ディレクトリ]
@@ -6,7 +6,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseTsvMeta, parseTsvEntries, parseWordFilename, listFiles, CATEGORIES, DEFAULT_CATEGORY } from './lib.mjs';
+import { parseTsvMeta, parseTsvEntries, wordId, contentVersion, listFiles, CATEGORIES, DEFAULT_CATEGORY } from './lib.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = process.argv[2] ? path.resolve(process.argv[2]) : ROOT;
@@ -16,12 +16,12 @@ for (const file of listFiles(path.join(ROOT, 'words'), '.tsv')) {
   const text = fs.readFileSync(path.join(ROOT, 'words', file), 'utf8');
   const meta = parseTsvMeta(text);
   const { entries } = parseTsvEntries(text);
-  const { id, version } = parseWordFilename(file);
+  const id = wordId(file);
   words.push({
     id,
     title: meta.title || id,
     category: meta.category || DEFAULT_CATEGORY,
-    version,
+    version: contentVersion(text),
     file,
     entries: entries.length,
   });
@@ -44,7 +44,10 @@ for (const file of listFiles(path.join(ROOT, 'ghosts'), '.ghost.json')) {
 ghosts.sort((a, b) => (a.order ?? Infinity) - (b.order ?? Infinity) || a.id.localeCompare(b.id));
 for (const g of ghosts) delete g.order;
 
-const catalog = { version: 2, words, ghosts };
+// カタログは辞書(words.json)とゴースト(ghosts.json)の2ファイルに分けて配信する。
+// version は各カタログのスキーマ版(辞書中身のバージョンとは別物)。
 fs.mkdirSync(outDir, { recursive: true });
-fs.writeFileSync(path.join(outDir, 'catalog.json'), JSON.stringify(catalog, null, 2) + '\n');
-console.log(`catalog.json: 単語リスト${words.length}件 / ゴースト${ghosts.length}件 → ${outDir}`);
+const write = (name, obj) => fs.writeFileSync(path.join(outDir, name), JSON.stringify(obj, null, 2) + '\n');
+write('words.json', { version: 2, words });
+write('ghosts.json', { version: 2, ghosts });
+console.log(`words.json: 単語リスト${words.length}件 / ghosts.json: ゴースト${ghosts.length}件 → ${outDir}`);
