@@ -8,7 +8,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseTsvMeta, parseTsvEntries, parseWordFilename, listFiles, CATEGORIES } from './lib.mjs';
+import { parseTsvMeta, parseTsvEntries, wordId, listFiles, CATEGORIES } from './lib.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const errors = [];
@@ -26,10 +26,9 @@ for (const file of listFiles(path.join(ROOT, 'words'), '.tsv')) {
   if (!/^[A-Za-z0-9@._-]+\.tsv$/.test(file)) {
     errors.push(`${label}: ファイル名に使えない文字があります(半角英数・@・.・-・_のみ)`);
   }
-  const { id } = parseWordFilename(file);
-  // 同じ id の別バージョンが共存するとカタログ・ランキングが割れるため、
-  // バージョン更新時は旧ファイルを削除すること
-  if (seenIds.has(id)) errors.push(`${label}: id "${id}" が ${seenIds.get(id)} と重複しています(旧バージョンを削除してください)`);
+  const id = wordId(file);
+  // id はファイル名そのもの。通常は衝突しないが、大文字小文字違い等の取りこぼしを検出する
+  if (seenIds.has(id)) errors.push(`${label}: id "${id}" が ${seenIds.get(id)} と重複しています`);
   seenIds.set(id, label);
 
   const { entries, errors: lineErrors } = parseTsvEntries(text);

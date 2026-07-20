@@ -1,5 +1,6 @@
 // build-catalog.mjs / validate.mjs 共通のパース処理
 
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -51,14 +52,19 @@ export function parseTsvEntries(text) {
   return { entries, errors };
 }
 
-// ファイル名から id とバージョンを導出する。
-// `<id>.tsv` または `<id>@<YYYYMMDDHHMM>.tsv`(末尾の @数字12〜14桁 がバージョン)。
-//   proverbs.tsv                        → { id: 'proverbs', version: null }
-//   @user@handon.club@202607172345.tsv  → { id: '@user@handon.club', version: '202607172345' }
-export function parseWordFilename(file) {
-  const base = path.basename(file).replace(/\.tsv$/, '');
-  const m = base.match(/^(.+)@(\d{12,14})$/);
-  return m ? { id: m[1], version: m[2] } : { id: base, version: null };
+// ファイル名から id を導出する(ファイル名 = id + .tsv)。
+// バージョンはファイル名ではなく中身のハッシュ(contentVersion)で管理する。
+//   proverbs.tsv                → 'proverbs'
+//   @user@handon.club.tsv       → '@user@handon.club'
+export function wordId(file) {
+  return path.basename(file).replace(/\.tsv$/, '');
+}
+
+// 辞書の版(バージョン)。中身が変わったときだけ変わる内容ハッシュ。
+// git 履歴に依存せず、revert すれば版も元に戻る(＝過去のランキングが再び有効になる)。
+// sha256 の先頭10桁。ランキングは id + version の組で辞書の版を区別する。
+export function contentVersion(text) {
+  return crypto.createHash('sha256').update(text, 'utf8').digest('hex').slice(0, 10);
 }
 
 export function listFiles(dir, suffix) {
