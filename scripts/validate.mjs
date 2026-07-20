@@ -1,17 +1,29 @@
 // words/*.tsv と ghosts/*.ghost.json の形式検証。PR CI と デプロイ前に実行する。
 // 問題があれば内容を列挙して exit 1。
 //
-// 注: ローマ字打鍵可能性の完全検証は snstyping 本体のエンジン依存のため、
-// ここでは文字集合の正規表現チェックに留める(READING_RE は本体の
-// lib/engine/romaji.js のローマ字表と同期させること)。
+// 読み仮名は 文字集合(READING_RE)だけでなく、本体エンジンのベンダリング
+// (romaji.mjs)で「最後まで打鍵できるか」も検証する。手直しや GitHub UI からの
+// 直接編集で打鍵不能な読みが紛れ込むのを、マージ前にここで止める。
+// romaji.mjs / READING_RE は本体 lib/engine/romaji.js と同期させること(README参照)。
 
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseTsvMeta, parseTsvEntries, wordId, listFiles, CATEGORIES } from './lib.mjs';
+import { parseTsvMeta, parseTsvEntries, wordId, listFiles, isValidCategory } from './lib.mjs';
+import { parseKana, normalizeReading } from './romaji.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const errors = [];
+
+// エンジンで読みを最後まで打鍵できるか(snstyping 本体の isTypeable と同じ判定)
+function isTypeable(reading) {
+  try {
+    const chunks = parseKana(normalizeReading(reading));
+    return chunks.length > 0 && chunks.every((c) => c.candidates.length > 0);
+  } catch {
+    return false;
+  }
+}
 
 // ---- words/*.tsv ----
 const seenIds = new Map();
@@ -20,8 +32,8 @@ for (const file of listFiles(path.join(ROOT, 'words'), '.tsv')) {
   const text = fs.readFileSync(path.join(ROOT, 'words', file), 'utf8');
   const meta = parseTsvMeta(text);
   if (!meta.title) errors.push(`${label}: 先頭コメントに「# title: 表示名」がありません`);
-  if (meta.category && !CATEGORIES.includes(meta.category)) {
-    errors.push(`${label}: category が不正です(${CATEGORIES.join(' / ')} のみ): ${meta.category}`);
+  if (meta.category && !isValidCategory(meta.category)) {
+    errors.push(`${label}: category は「一般」またはサーバー名(ドメイン)にしてください: ${meta.category}`);
   }
   if (!/^[A-Za-z0-9@._-]+\.tsv$/.test(file)) {
     errors.push(`${label}: ファイル名に使えない文字があります(半角英数・@・.・-・_のみ)`);
@@ -34,6 +46,19 @@ for (const file of listFiles(path.join(ROOT, 'words'), '.tsv')) {
   const { entries, errors: lineErrors } = parseTsvEntries(text);
   for (const e of lineErrors) errors.push(`${label}: ${e}`);
   if (entries.length === 0) errors.push(`${label}: エントリが1件もありません`);
+
+  // 打鍵可能性(文字集合を通っても、エンジンで打てない読みは弾く)と display の重複
+  const seenDisplays = new Map();
+  for (const [i, e] of entries.entries()) {
+    if (!isTypeable(e.reading)) {
+      errors.push(`${label}: 「${e.display}」の読み「${e.reading}」は最後まで打鍵できません`);
+    }
+    if (seenDisplays.has(e.display)) {
+      errors.push(`${label}: 表示テキスト「${e.display}」が重複しています(${seenDisplays.get(e.display)}行目とこの${i + 1}件目)`);
+    } else {
+      seenDisplays.set(e.display, i + 1);
+    }
+  }
 }
 
 // ---- ghosts/*.ghost.json ----
