@@ -6,7 +6,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseTsvMeta, parseTsvEntries, wordId, contentVersion, listFiles, CATEGORIES, DEFAULT_CATEGORY } from './lib.mjs';
+import { parseTsvMeta, parseTsvEntries, wordId, contentVersion, listFiles, categoryRank, DEFAULT_CATEGORY } from './lib.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = process.argv[2] ? path.resolve(process.argv[2]) : ROOT;
@@ -26,9 +26,14 @@ for (const file of listFiles(path.join(ROOT, 'words'), '.tsv')) {
     entries: entries.length,
   });
 }
-// カテゴリ順(CATEGORIES の並び、未知カテゴリは末尾)→ id順
-const catIndex = (c) => (CATEGORIES.includes(c) ? CATEGORIES.indexOf(c) : CATEGORIES.length);
-words.sort((a, b) => catIndex(a.category) - catIndex(b.category) || a.id.localeCompare(b.id));
+// カテゴリ順(「一般」→ サーバー名の辞書順)→ id順。
+// 同一カテゴリが連続するようにソートすること(アプリ側は連続する同カテゴリを1グループにまとめる)。
+words.sort(
+  (a, b) =>
+    categoryRank(a.category) - categoryRank(b.category) ||
+    a.category.localeCompare(b.category) ||
+    a.id.localeCompare(b.id),
+);
 
 const ghosts = [];
 for (const file of listFiles(path.join(ROOT, 'ghosts'), '.ghost.json')) {

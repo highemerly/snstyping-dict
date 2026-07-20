@@ -11,9 +11,18 @@ import path from 'node:path';
 // 漢字などキーボードで直接打てない文字は不可。
 export const READING_RE = /^[ぁ-ゖァ-ヶー、。！？・「」　\x20-\x7e]+$/u;
 
-// 辞書カテゴリ。配列順がカタログ・UIでの表示順になる
-export const CATEGORIES = ['一般', 'handon.club'];
-export const DEFAULT_CATEGORY = CATEGORIES[0];
+// 辞書カテゴリ。「一般」(既定・運営の単語リスト)または SNS のサーバー名(ドメイン)。
+// サーバーは列挙しない: ドメイン形式なら自動で許可する(新しいサーバーの追加にコード変更は不要)。
+export const DEFAULT_CATEGORY = '一般';
+
+export function isValidCategory(category) {
+  return category === DEFAULT_CATEGORY || /^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}$/i.test(category);
+}
+
+// カタログ・UIの表示順: 「一般」を先頭に、その後はサーバー名の辞書順。
+export function categoryRank(category) {
+  return category === DEFAULT_CATEGORY ? 0 : 1;
+}
 
 // TSV先頭のコメントブロックから `# key: value` 形式のメタデータを読む
 export function parseTsvMeta(text) {

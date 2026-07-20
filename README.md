@@ -33,8 +33,11 @@ GitHub Pages で配信し、アプリは実行時にここから取得する。
 - ふりがなに使えるのは ひらがな(カタカナも可、ひらがなに正規化される)・ー・
   記号 、。！？・「」・空白・ASCII印字可能文字(英数字はそのキーを1打鍵)。
   漢字などキーボードで直接打てない文字は不可
-  (snstyping 本体 `lib/engine/romaji.js` の挙動と対応。ローマ字表を拡張したら
-  `scripts/lib.mjs` の `READING_RE` も同期させること)。
+  (snstyping 本体 `lib/engine/romaji.js` の挙動と対応)。
+  CI は文字集合(`scripts/lib.mjs` の `READING_RE`)だけでなく、本体エンジンの
+  ベンダリング `scripts/romaji.mjs` で「最後まで打鍵できるか」も検証する。
+  **本体 `lib/engine/romaji.js` のローマ字表を変更したら、`scripts/romaji.mjs` を
+  コピーし直し、`READING_RE` も同期させること。**
 
 ## ゴースト(ghosts/*.ghost.json)の形式
 
