@@ -32,6 +32,17 @@ jobs:
           mkdir -p _site
           cp -r words ghosts _site/
           node scripts/build-catalog.mjs _site
+      - name: Fetch UniDic dictionary
+        # 投稿フローのふりがな生成(クライアント側 mecab-web-worker + UniDic)で使う辞書。
+        # git 履歴に 46MB を残さないよう Release 資産をソースにし、Pages 成果物へ取り込む。
+        # Pages は CORS(access-control-allow-origin: *)を返すのでアプリからブラウザ取得できる。
+        run: |
+          gh release download unidic-mecab-2.1.2 \
+            --repo "${{ github.repository }}" \
+            --pattern 'unidic-mecab-2.1.2_bin.zip' \
+            --dir _site
+        env:
+          GH_TOKEN: ${{ github.token }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
